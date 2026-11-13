@@ -1,0 +1,50 @@
+# VulnReview Configuration
+seed: 42
+seeds: [0, 1, 2]
+
+data:
+  raw_csv: "data/raw/all_c_cpp_release2_0.csv"
+  processed_dir: "data/processed"
+  c_extensions: [".c", ".cc", ".cpp", ".cxx", ".h", ".hpp", ".hh"]
+  delimiter: "<_**next**_>"
+  max_len: 512
+  max_len_reduced: 256
+
+model:
+  name: "microsoft/codebert-base"
+  dropout: 0.1
+  num_cwe_classes: 11  # top-10 + Other
+  num_severity_classes: 3  # low, medium, high
+  cwe_loss_weight: 0.5
+  sev_loss_weight: 0.5
+
+training:
+  lr: 2.0e-5
+  weight_decay: 0.01
+  batch_size: 16
+  grad_accum_steps: 2
+  epochs: 5
+  epochs_reduced: 2
+  warmup_ratio: 0.1
+  fp16: true
+  pair_aware_batching: true
+  early_stopping_patience: 3
+
+splits:
+  random_train: 0.8
+  random_val: 0.1
+  random_test: 0.1
+  temporal_cutoff_year: 2017
+  temporal_test_years: [2018, 2019]
+  cross_project_train: ["Chrome", "Linux_kernel", "Android"]
+  val_ratio: 0.1
+
+explain:
+  ig_steps: 30
+  max_explain_samples: 300
+  top_k_lines: 3
+
+results:
+  dir: "results"
+  models_dir: "models"
+  splits_dir: "splits"

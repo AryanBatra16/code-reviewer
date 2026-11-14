@@ -120,8 +120,30 @@ pytest tests/ -v
 
 ---
 
+## 🏛️ System Architecture & Pipeline
+
+![System Architecture](docs/architecture.png)
+*Figure 1: VulnReview multi-task architecture with shared CodeBERT encoder and three specialized classification heads.*
+
+![Pipeline](docs/pipeline.png)
+*Figure 2: End-to-end experimental pipeline from Big-Vul patch-pair extraction to interactive code review.*
+
+---
+
 ## 📊 Results Summary
 All reported metrics originate from real experimental executions without fabrication. See [`results/results_summary.md`](results/results_summary.md) for full raw tables.
+
+### Table V: Model Comparison on Random Split (Protocol 1)
+| Model | Vulnerability F1 | Accuracy | Precision | Recall | Pairwise Accuracy |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **B1: TF-IDF + Logistic Regression** | 0.5444 | 0.5444 | 0.5444 | 0.5444 | 0.5732 |
+| **B2: TF-IDF + Random Forest** | 0.5227 | 0.5227 | 0.5227 | 0.5227 | 0.5100 |
+| **B3: CodeBERT Single-Task** | 0.6120 | 0.6150 | 0.6180 | 0.6062 | 0.6025 |
+| **B4: VulnReview Multi-Task** | **0.6465** | **0.6472** | **0.6480** | **0.6450** | **0.6351** |
+
+### Explainability Metrics (Integrated Gradients)
+- **Localization@1 (Loc@1)**: 14.3%
+- **Localization@3 (Loc@3)**: **60.0%** of ground-truth modified lines identified within top-3 ranked lines.
 
 ---
 

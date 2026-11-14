@@ -198,7 +198,8 @@ def main() -> None:
         models_dir_name = cfg["results"].get("models_dir", "models") if "results" in cfg else "models"
         splits_dir_name = cfg["results"].get("splits_dir", "splits") if "results" in cfg else "splits"
         ckpt_path = root / models_dir_name / "best_B4_P1.pt"
-        if ckpt_path.exists():
+        cm_out_path = results_dir / "confusion_matrix_P1.png"
+        if ckpt_path.exists() and not cm_out_path.exists():
             try:
                 import torch
                 from transformers import AutoTokenizer

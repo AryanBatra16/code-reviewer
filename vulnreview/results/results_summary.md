@@ -4,12 +4,12 @@
 
 ## Table V: Comparison on P1 (Random Split)
 
-| model          |   test_f1_str |   test_accuracy_str |   test_precision_str |   test_recall_str |   test_pair_accuracy_str |
-|:---------------|--------------:|--------------------:|---------------------:|------------------:|-------------------------:|
-| B1_TFIDF_LR    |        0.5444 |              0.5313 |               0.5296 |            0.5601 |                   0.5732 |
-| B2_TFIDF_RF    |        0.5227 |              0.5354 |               0.5373 |            0.5088 |                   0.51   |
-| B3_single_task |        0.6152 |              0.5288 |               0.5199 |            0.7534 |                   0.632  |
-| B4_full        |        0.6465 |              0.527  |               0.5161 |            0.8649 |                   0.6351 |
+| model          | test_f1_str     | test_accuracy_str   | test_precision_str   | test_recall_str   | test_pair_accuracy_str   |
+|:---------------|:----------------|:--------------------|:---------------------|:------------------|:-------------------------|
+| B1_TFIDF_LR    | 0.5444          | 0.5313              | 0.5296               | 0.5601            | 0.5732                   |
+| B2_TFIDF_RF    | 0.5227          | 0.5354              | 0.5373               | 0.5088            | 0.5100                   |
+| B3_single_task | 0.6132 ± 0.0029 | 0.5327 ± 0.0055     | 0.5232 ± 0.0047      | 0.7409 ± 0.0177   | 0.6139 ± 0.0257          |
+| B4_full        | 0.6465          | 0.5270              | 0.5161               | 0.8649            | 0.6351                   |
 
 ## Table VI: B4 Generalization Across Protocols
 
@@ -19,10 +19,10 @@
 
 ## Table VII: Ablation Study (P1)
 
-| model          |   test_f1_str |   test_pair_accuracy_str |   test_sw_recall_str |
-|:---------------|--------------:|-------------------------:|---------------------:|
-| B3_single_task |        0.6152 |                   0.632  |               0.74   |
-| B4_full        |        0.6465 |                   0.6351 |               0.8634 |
+| model          | test_f1_str     | test_pair_accuracy_str   | test_sw_recall_str   |
+|:---------------|:----------------|:-------------------------|:---------------------|
+| B3_single_task | 0.6132 ± 0.0029 | 0.6139 ± 0.0257          | 0.7307 ± 0.0132      |
+| B4_full        | 0.6465          | 0.6351                   | 0.8634               |
 
 ## Hyperparameters Used
 

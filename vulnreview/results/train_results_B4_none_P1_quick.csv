@@ -1,0 +1,2 @@
+model,model_type,ablation,protocol,seed,best_epoch,best_val_f1,train_time_sec,quick,test_accuracy,test_precision,test_recall,test_f1,test_pair_accuracy,test_cwe_macro_f1,test_sev_macro_f1,test_sev_mae,test_sw_recall
+B4_full,B4,none,P1,0,1,0.680628272251309,28.907400369644165,True,0.527027027027027,0.5161290322580645,0.8648648648648649,0.6464646464646465,0.6351351351351351,0.08391608391608393,0.3715555555555556,0.25675675675675674,0.8633648581383773

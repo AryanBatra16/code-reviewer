@@ -169,8 +169,12 @@ def get_severity_label(score: Any) -> int:
     0=low (<4.0), 1=medium (4.0-6.9), 2=high (>=7.0).
     Returns MASKED_LABEL if missing.
     """
+    if score is None or pd.isna(score) or str(score).strip().lower() in ("", "nan", "none"):
+        return MASKED_LABEL
     try:
         s = float(score)
+        if np.isnan(s):
+            return MASKED_LABEL
         if s < 4.0:
             return 0
         elif s < 7.0:

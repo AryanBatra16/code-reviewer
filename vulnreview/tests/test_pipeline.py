@@ -99,17 +99,17 @@ def test_build_pair_texts():
 def test_cwe_label_mapping():
     from vulnreview.data_prep import get_cwe_label, build_cwe_map
     import pandas as pd
-    df = pd.DataFrame({
-        "cwe_id": ["CWE-119", "CWE-119", "CWE-125", "CWE-787", None, "CWE-999-rare"]
-    })
+    # 12 unique CWEs so top 10 are selected and others go to Other
+    cwes = [f"CWE-{i}" for i in range(12)] + ["CWE-0"] * 5
+    df = pd.DataFrame({"cwe_id": cwes})
     cwe_to_idx, ordered = build_cwe_map(df)
     assert "Other" in cwe_to_idx
-    assert "CWE-119" in cwe_to_idx
-    assert cwe_to_idx["CWE-119"] == 0
+    assert "CWE-0" in cwe_to_idx
+    assert cwe_to_idx["CWE-0"] == 0
     from vulnreview.data_prep import MASKED_LABEL
     assert get_cwe_label(None, cwe_to_idx) == MASKED_LABEL
-    assert get_cwe_label("CWE-999-rare", cwe_to_idx) == cwe_to_idx["Other"]
-    assert get_cwe_label("CWE-119", cwe_to_idx) == cwe_to_idx["CWE-119"]
+    assert get_cwe_label("CWE-999-unseen", cwe_to_idx) == cwe_to_idx["Other"]
+    assert get_cwe_label("CWE-0", cwe_to_idx) == cwe_to_idx["CWE-0"]
 
 
 def test_severity_label():

@@ -67,10 +67,14 @@ def get_token_attributions(
     embedding_layer = model.encoder.embeddings.word_embeddings
 
     def forward_func(embeddings):
+        # Attention mask shape must match batch size of interpolated embeddings
+        bsz = embeddings.shape[0]
+        att_mask = attention_mask.expand(bsz, -1)
+        tt_ids = token_type_ids.expand(bsz, -1) if token_type_ids is not None else None
         outputs = model.encoder(
             inputs_embeds=embeddings,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
+            attention_mask=att_mask,
+            token_type_ids=tt_ids,
         )
         cls_out = model.dropout(outputs.last_hidden_state[:, 0, :])
         logits = model.vuln_head(cls_out)

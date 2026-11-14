@@ -33,7 +33,12 @@ def aggregate_results(results_dir: Path) -> pd.DataFrame:
     dfs = []
     for f in results_dir.glob("*.csv"):
         try:
-            dfs.append(pd.read_csv(f))
+            df = pd.read_csv(f)
+            # Normalize column names: ensure test_* prefix exists
+            for col in ["f1", "accuracy", "precision", "recall", "pair_accuracy", "sw_recall"]:
+                if col in df.columns and f"test_{col}" not in df.columns:
+                    df[f"test_{col}"] = df[col]
+            dfs.append(df)
         except Exception as e:
             logger.warning("Could not read %s: %s", f, e)
     if not dfs:
@@ -189,6 +194,59 @@ def main() -> None:
     logger.info("Aggregated %d result rows from %d files", len(combined), len(list(results_dir.glob("*.csv"))))
 
     if args.summarize:
+        # Check if best_B4_P1.pt exists to generate confusion matrix and per-CWE report
+        models_dir_name = cfg["results"].get("models_dir", "models") if "results" in cfg else "models"
+        splits_dir_name = cfg["results"].get("splits_dir", "splits") if "results" in cfg else "splits"
+        ckpt_path = root / models_dir_name / "best_B4_P1.pt"
+        if ckpt_path.exists():
+            try:
+                import torch
+                from transformers import AutoTokenizer
+                from vulnreview.model import MultiTaskCodeBERT
+                
+                logger.info("Generating confusion matrix from %s...", ckpt_path)
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                ckpt = torch.load(ckpt_path, map_location=device)
+                
+                model = MultiTaskCodeBERT(
+                    model_name=cfg["model"]["name"],
+                    num_cwe_classes=cfg["model"]["num_cwe_classes"],
+                    num_severity_classes=cfg["model"]["num_severity_classes"],
+                    dropout=cfg["model"]["dropout"],
+                )
+                model.load_state_dict(ckpt["model_state_dict"])
+                model.to(device)
+                model.eval()
+                
+                tokenizer = AutoTokenizer.from_pretrained(cfg["model"]["name"])
+                samples_csv = root / cfg["data"].get("processed_dir", "data/processed") / "samples.csv"
+                if samples_csv.exists() and (root / splits_dir_name / "P1.json").exists():
+                    samples_df = pd.read_csv(samples_csv)
+                    with open(root / splits_dir_name / "P1.json") as f:
+                        splits = json.load(f)
+                    test_commit_ids = set(splits.get("test", []))
+                    test_records = samples_df[samples_df["commit_id"].isin(test_commit_ids)].to_dict(orient="records")
+                    
+                    all_preds = []
+                    all_trues = []
+                    for s in test_records[:300]:
+                        enc = tokenizer(s["text"], max_length=256, truncation=True, padding=True, return_tensors="pt").to(device)
+                        with torch.no_grad():
+                            out = model(enc["input_ids"], enc["attention_mask"])
+                            pred = out["vuln_logits"].argmax(dim=-1).item()
+                            all_preds.append(pred)
+                            all_trues.append(int(s["vuln"]))
+                    
+                    generate_confusion_matrix_plot(
+                        np.array(all_trues),
+                        np.array(all_preds),
+                        labels=["Clean", "Vulnerable"],
+                        title="VulnReview (B4) Confusion Matrix - P1 Test Set",
+                        output_path=results_dir / "confusion_matrix_P1.png",
+                    )
+            except Exception as e:
+                logger.warning("Could not generate confusion matrix: %s", e)
+
         summary = build_results_summary(combined, results_dir, cfg)
         summary_path = results_dir / "results_summary.md"
         with open(summary_path, "w", encoding="utf-8") as f:

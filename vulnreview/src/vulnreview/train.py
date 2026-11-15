@@ -542,9 +542,25 @@ def main() -> None:
         cfg["training"]["epochs"] = args.epochs
 
     root = Path(".")
-    all_results = []
+    suffix = "_quick" if args.quick else ""
+    out_path = root / cfg["results"]["dir"] / f"train_results_{args.model}_{args.ablation}_{args.protocol}{suffix}.csv"
+
+    # Load existing results if file exists
+    if out_path.exists():
+        try:
+            existing_df = pd.read_csv(out_path)
+            all_results = existing_df.to_dict(orient="records")
+        except Exception:
+            all_results = []
+    else:
+        all_results = []
 
     for seed in args.seeds:
+        # Check if seed is already completed
+        if any(r.get("seed") == seed for r in all_results):
+            logger.info("Seed %d already completed in %s. Skipping.", seed, out_path)
+            continue
+
         result = run_training(
             model_type=args.model,
             ablation=args.ablation,
@@ -555,12 +571,14 @@ def main() -> None:
             quick=args.quick,
         )
         all_results.append(result)
+        # Save incrementally after each seed
+        results_df = pd.DataFrame(all_results)
+        results_df.to_csv(out_path, index=False)
+        logger.info("Saved incremental training results (seed=%d) to %s", seed, out_path)
 
     results_df = pd.DataFrame(all_results)
-    suffix = "_quick" if args.quick else ""
-    out_path = root / cfg["results"]["dir"] / f"train_results_{args.model}_{args.ablation}_{args.protocol}{suffix}.csv"
     results_df.to_csv(out_path, index=False)
-    logger.info("Saved training results to %s", out_path)
+    logger.info("Saved final training results to %s", out_path)
     print("\nResults:")
     print(results_df[["model", "protocol", "seed", "test_f1", "test_pair_accuracy", "train_time_sec"]].to_string(index=False))
 

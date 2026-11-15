@@ -89,6 +89,7 @@ def get_token_attributions(
         baselines=baseline,
         target=None,
         n_steps=n_steps,
+        internal_batch_size=4,
         return_convergence_delta=True,
     )
 

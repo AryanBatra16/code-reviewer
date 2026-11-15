@@ -136,14 +136,16 @@ All reported metrics originate from real experimental executions without fabrica
 ### Table V: Model Comparison on Random Split (Protocol 1)
 | Model | Vulnerability F1 | Accuracy | Precision | Recall | Pairwise Accuracy |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **B1: TF-IDF + Logistic Regression** | 0.5444 | 0.5444 | 0.5444 | 0.5444 | 0.5732 |
-| **B2: TF-IDF + Random Forest** | 0.5227 | 0.5227 | 0.5227 | 0.5227 | 0.5100 |
-| **B3: CodeBERT Single-Task** | 0.6120 | 0.6150 | 0.6180 | 0.6062 | 0.6025 |
-| **B4: VulnReview Multi-Task** | **0.6465** | **0.6472** | **0.6480** | **0.6450** | **0.6351** |
+| **B1: TF-IDF + Logistic Regression** | 0.5444 | 0.5313 | 0.5296 | 0.5601 | 0.5732 |
+| **B2: TF-IDF + Random Forest** | 0.5227 | 0.5354 | 0.5373 | 0.5088 | 0.5100 |
+| **B3: CodeBERT Single-Task** | 0.6168 ± 0.0065 | 0.5308 ± 0.0051 | 0.5214 ± 0.0045 | 0.7555 ± 0.0282 | 0.6085 ± 0.0204 |
+| **B4: VulnReview Multi-Task** | 0.5432 ± 0.0294 | 0.5165 ± 0.0141 | 0.5143 ± 0.0120 | 0.5766 ± 0.0512 | 0.5636 ± 0.0145 |
 
-### Explainability Metrics (Integrated Gradients)
-- **Localization@1 (Loc@1)**: 14.3%
-- **Localization@3 (Loc@3)**: **60.0%** of ground-truth modified lines identified within top-3 ranked lines.
+*Note: While single-task B3 achieves higher raw binary vulnerability F1, multi-task B4 jointly learns fine-grained CWE taxonomy identification (CWE Macro-F1: 0.1430 ± 0.0131 vs 0.0260 for B3) and severity ranking (MAE: 0.4570 vs 1.3548 for B3).*
+
+### Explainability Metrics (Integrated Gradients on 300 Test Samples)
+- **Localization@1 (Loc@1)**: **50.67%** (Top suspicious line is directly a ground-truth removed line)
+- **Localization@3 (Loc@3)**: **81.67%** of ground-truth vulnerable lines successfully localized within top-3 ranked lines.
 
 ---
 

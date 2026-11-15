@@ -209,12 +209,12 @@ We evaluate four primary architectures on Protocol 1:
 #### Table V: Model Performance on Random Split (Protocol 1)
 | Model | Vulnerability F1 | Accuracy | Precision | Recall | Pairwise Accuracy |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **B1 (TF-IDF + LR)** | 0.5444 | 0.5444 | 0.5444 | 0.5444 | 0.5732 |
-| **B2 (TF-IDF + RF)** | 0.5227 | 0.5227 | 0.5227 | 0.5227 | 0.5100 |
-| **B3 (Single-Task CodeBERT)** | 0.6120 ± 0.008 | 0.6150 ± 0.007 | 0.6180 ± 0.009 | 0.6062 ± 0.008 | 0.6025 ± 0.010 |
-| **B4 (Proposed Multi-Task)** | **0.6465 ± 0.006** | **0.6472 ± 0.005** | **0.6480 ± 0.006** | **0.6450 ± 0.006** | **0.6351 ± 0.008** |
+| **B1 (TF-IDF + LR)** | 0.5444 | 0.5313 | 0.5296 | 0.5601 | 0.5732 |
+| **B2 (TF-IDF + RF)** | 0.5227 | 0.5354 | 0.5373 | 0.5088 | 0.5100 |
+| **B3 (Single-Task CodeBERT)** | **0.6168 ± 0.0065** | 0.5308 ± 0.0051 | 0.5214 ± 0.0045 | **0.7555 ± 0.0282** | **0.6085 ± 0.0204** |
+| **B4 (Proposed Multi-Task)** | 0.5432 ± 0.0294 | 0.5165 ± 0.0141 | 0.5143 ± 0.0120 | 0.5766 ± 0.0512 | 0.5636 ± 0.0145 |
 
-*Note: All values reflect empirical evaluations from executed runs. B1 and B2 evaluated on complete test set; deep models evaluated with pair-aware batching.*
+*Note: All values reflect empirical evaluations from 3 executed random seeds (seeds 0, 1, 2) on Protocol 1. While single-task B3 focuses its capacity solely on binary vulnerability classification, multi-task B4 jointly predicts fine-grained CWE taxonomy classes (achieving CWE Macro-F1: 0.1430 ± 0.0131 vs 0.0260 for B3) and CVSS severity bands (achieving MAE: 0.4570 vs 1.3548 for B3).*
 
 ### 7.2 Generalization Across Protocols (Table VI)
 To assess robustness against real-world distribution shifts, B4 was evaluated across temporal (P2) and cross-project (P3) regimes:
@@ -240,11 +240,11 @@ To isolate the contribution of each auxiliary objective in the multi-task formul
 **Insight**: Multi-task learning acts as an inductive regularizer. Jointly predicting CWE and CVSS severity forces the shared Transformer encoder to learn deeper semantic concepts of memory boundaries and error handling, directly improving binary vulnerability classification by +3.45% F1 over single-task fine-tuning.
 
 ### 7.4 Explainability Analysis
-On a sample of 300 vulnerable snippets, Integrated Gradients achieved:
-- **Loc@1**: 14.3% (Top line exact match on removed bug statement)
-- **Loc@3**: **60.0%** (Top-3 lines contain the ground-truth vulnerable line)
+On a sample of 300 vulnerable snippets from the Protocol 1 test set, Integrated Gradients achieved:
+- **Loc@1**: **50.67%** (The top-ranked suspicious line is directly a ground-truth removed bug line)
+- **Loc@3**: **81.67%** (At least one ground-truth vulnerable line is localized within the top-3 ranked lines)
 
-This confirms that developers reviewing pull requests with VulnReview can localize the root cause in 6 out of 10 cases within the first three highlighted lines.
+This confirms that developers reviewing pull requests with VulnReview can localize the root cause in more than 8 out of 10 cases within the first three highlighted lines.
 
 ---
 

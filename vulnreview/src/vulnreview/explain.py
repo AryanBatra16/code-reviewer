@@ -108,8 +108,11 @@ def tokens_to_line_scores(
     source_text: str,
 ) -> dict[int, float]:
     """
-    Map token attributions back to source lines.
+    Map token attributions back to source lines using newline counting.
     Returns {line_idx: score} where score = sum of positive token attributions on that line.
+
+    Strategy: reconstruct text from BPE tokens, track which tokens fall on which line
+    by counting Ċ (newline) tokens and Ġ/▁ (space) prefix tokens.
     """
     if not tokens or not attr_scores:
         return {}
@@ -121,22 +124,21 @@ def tokens_to_line_scores(
 
     line_scores: dict[int, float] = {i: 0.0 for i in range(n_lines)}
 
-    char_pos = 0
-    tok_idx = 0
-    for line_idx, line in enumerate(source_lines):
-        line_len = len(line) + 1
-        line_end = char_pos + line_len
-        while tok_idx < len(tokens):
-            tok = tokens[tok_idx]
-            tok_clean = tok.replace("Ġ", " ").replace("▁", " ").replace("Ċ", "\n")
-            tok_end = char_pos + len(tok_clean)
-            if tok_end > line_end:
-                break
-            score = max(0.0, attr_scores[tok_idx])
-            line_scores[line_idx] = line_scores.get(line_idx, 0.0) + score
-            char_pos = tok_end
-            tok_idx += 1
-        char_pos = line_end
+    # Assign each token to a line by tracking newlines
+    current_line = 0
+    for tok, score in zip(tokens, attr_scores):
+        # Skip special tokens
+        if tok in ("<s>", "</s>", "<pad>", "[CLS]", "[SEP]", "[PAD]"):
+            continue
+        # Ċ is the BPE encoding of a newline
+        if "Ċ" in tok:
+            # Count how many newlines in this token
+            newlines = tok.count("Ċ")
+            current_line = min(current_line + newlines, n_lines - 1)
+            continue
+        if current_line < n_lines:
+            s = max(0.0, score)
+            line_scores[current_line] = line_scores.get(current_line, 0.0) + s
 
     return line_scores
 

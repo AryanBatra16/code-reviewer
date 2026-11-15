@@ -146,10 +146,15 @@ def build_results_summary(
     # Table VII: Ablation on P1
     lines.append("## Table VII: Ablation Study (P1)")
     lines.append("")
-    abl_df = combined_df[
-        (combined_df.get("protocol", pd.Series()) == "P1") &
-        (combined_df.get("model_type", pd.Series()).isin(["B3", "B4"]))
-    ] if not combined_df.empty else pd.DataFrame()
+    if not combined_df.empty and "protocol" in combined_df.columns:
+        p1_cond = combined_df["protocol"] == "P1"
+        if "model_type" in combined_df.columns:
+            type_cond = combined_df["model_type"].isin(["B3", "B4"])
+            abl_df = combined_df[p1_cond & type_cond]
+        else:
+            abl_df = combined_df[p1_cond]
+    else:
+        abl_df = pd.DataFrame()
     if not abl_df.empty:
         tbl = mean_std_table(abl_df, ["model"], ["test_f1", "test_pair_accuracy", "test_sw_recall"])
         lines.append(tbl[["model", "test_f1_str", "test_pair_accuracy_str", "test_sw_recall_str"]].to_markdown(index=False))
@@ -170,6 +175,47 @@ def build_results_summary(
     lines.append(f"- Warmup ratio: {cfg['training']['warmup_ratio']}")
     lines.append(f"- fp16: {cfg['training']['fp16']}")
     lines.append(f"- Seeds: {cfg['seeds']}")
+    lines.append("")
+
+    # Explanation metrics (Loc@1, Loc@3)
+    lines.append("## Explanation Metrics (Integrated Gradients)")
+    lines.append("")
+    explain_path = results_dir / "explain_metrics_P1.json"
+    if explain_path.exists():
+        with open(explain_path) as f:
+            exp = json.load(f)
+        lines.append(f"- Protocol: P1")
+        loc1 = exp.get('loc1', 'N/A')
+        loc3 = exp.get('loc3', 'N/A')
+        lines.append(f"- Loc@1: {loc1:.4f}" if isinstance(loc1, float) else f"- Loc@1: {loc1}")
+        lines.append(f"- Loc@3: {loc3:.4f}" if isinstance(loc3, float) else f"- Loc@3: {loc3}")
+        lines.append(f"- Samples explained: {exp.get('n_explained', 'N/A')}")
+    else:
+        lines.append("*Not yet computed. Run: `python -m vulnreview.explain --protocol P1 --max-samples 300`*")
+    lines.append("")
+
+    # Paired bootstrap CI (B4 vs B3 on P1)
+    lines.append("## Paired Bootstrap CI: B4 vs B3 (P1)")
+    lines.append("")
+    if not combined_df.empty and "protocol" in combined_df.columns and "test_f1" in combined_df.columns:
+        b4_p1 = combined_df[
+            (combined_df["protocol"] == "P1") &
+            (combined_df["model"].str.contains("B4_full", na=False))
+        ]["test_f1"].dropna().tolist()
+        b3_p1 = combined_df[
+            (combined_df["protocol"] == "P1") &
+            (combined_df["model"].str.contains("B3_single_task", na=False))
+        ]["test_f1"].dropna().tolist()
+        if len(b4_p1) >= 2 and len(b3_p1) >= 2:
+            obs_diff, ci_low, ci_high = paired_bootstrap_f1(b4_p1, b3_p1)
+            lines.append(f"- Observed F1 difference (B4 - B3): {obs_diff:+.4f}")
+            lines.append(f"- 95% CI: [{ci_low:+.4f}, {ci_high:+.4f}]")
+            lines.append(f"- B4 F1 values: {[f'{v:.4f}' for v in b4_p1]}")
+            lines.append(f"- B3 F1 values: {[f'{v:.4f}' for v in b3_p1]}")
+        else:
+            lines.append(f"*Insufficient data: B4 seeds={len(b4_p1)}, B3 seeds={len(b3_p1)}. Need ≥2 each.*")
+    else:
+        lines.append("*Not yet computable — run B4 P1 training first.*")
     lines.append("")
 
     return "\n".join(lines)

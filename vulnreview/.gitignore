@@ -13,6 +13,7 @@ venv/
 data/raw/*.csv
 data/processed/
 models/*.pt
+!models/best_B4_P1.pt
 models/*.safetensors
 *.log
 .DS_Store

@@ -37,6 +37,46 @@ CWE_NAMES = {
 SEVERITY_NAMES = ["Low", "Medium", "High"]
 
 
+def _encode_token_chunks(text: str, tokenizer, max_len: int) -> list[tuple[dict, int]]:
+    """Encode all input tokens in model-sized chunks without dropping the tail."""
+    if max_len < 3:
+        raise ValueError("max_len must be at least 3 to fit special tokens")
+
+    token_ids = tokenizer(text, add_special_tokens=False, truncation=False)["input_ids"]
+    content_len = max_len - tokenizer.num_special_tokens_to_add(pair=False)
+    if content_len < 1:
+        raise ValueError("Tokenizer leaves no room for content tokens")
+
+    chunks = []
+    for start in range(0, len(token_ids) or 1, content_len):
+        content = token_ids[start:start + content_len]
+        first_special = tokenizer.cls_token_id
+        if first_special is None:
+            first_special = tokenizer.bos_token_id
+        last_special = tokenizer.sep_token_id
+        if last_special is None:
+            last_special = tokenizer.eos_token_id
+        if first_special is None or last_special is None:
+            raise ValueError("Tokenizer does not define boundary special tokens")
+        input_ids = [first_special] + content + [last_special]
+        input_ids = input_ids[:max_len]
+        padding_length = max_len - len(input_ids)
+        pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+        padded_ids = input_ids + [pad_id] * padding_length
+        attention_mask = [1] * len(input_ids) + [0] * padding_length
+        encoded = {
+            "input_ids": torch.tensor([padded_ids]),
+            "attention_mask": torch.tensor([attention_mask]),
+        }
+        if hasattr(tokenizer, "create_token_type_ids_from_sequences"):
+            token_type_ids = tokenizer.create_token_type_ids_from_sequences(content)
+            encoded["token_type_ids"] = torch.tensor(
+                [token_type_ids[:max_len] + [0] * (max_len - len(token_type_ids))]
+            )
+        chunks.append((encoded, max(1, len(content))))
+    return chunks
+
+
 def load_config(path: str = "configs/config.yaml") -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
@@ -94,36 +134,46 @@ def predict_one(
     Returns dict with probabilities, predictions, and line scores.
     """
     max_len = cfg["model"].get("max_len", 512)
-    enc = tokenizer(
-        text,
-        max_length=max_len,
-        truncation=True,
-        padding="max_length",
-        return_tensors="pt",
-    )
-    input_ids = enc["input_ids"].to(device)
-    attention_mask = enc["attention_mask"].to(device)
-    token_type_ids = enc.get("token_type_ids")
-    if token_type_ids is not None:
-        token_type_ids = token_type_ids.to(device)
-
     model.eval()
-    out = model(
-        input_ids=input_ids,
-        attention_mask=attention_mask,
-        token_type_ids=token_type_ids,
-    )
+    chunks = _encode_token_chunks(text, tokenizer, max_len)
+    logits_by_head = {"vuln_logits": [], "cwe_logits": [], "sev_logits": []}
+    weights = []
+    for enc, content_len in chunks:
+        input_ids = enc["input_ids"].to(device)
+        attention_mask = enc["attention_mask"].to(device)
+        token_type_ids = enc.get("token_type_ids")
+        if token_type_ids is not None:
+            token_type_ids = token_type_ids.to(device)
 
-    vuln_proba = torch.softmax(out["vuln_logits"], dim=-1)[0].cpu().tolist()
-    vuln_pred = int(torch.argmax(out["vuln_logits"], dim=-1).item())
+        out = model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+        )
+        weights.append(content_len)
+        for head in logits_by_head:
+            if out[head] is not None:
+                logits_by_head[head].append(out[head][0] * content_len)
+
+    total_weight = sum(weights)
+    averaged_logits = {
+        head: torch.stack(values).sum(dim=0) / total_weight
+        if values else None
+        for head, values in logits_by_head.items()
+    }
+
+    vuln_logits = averaged_logits["vuln_logits"]
+    vuln_proba = torch.softmax(vuln_logits, dim=-1).cpu().tolist()
+    vuln_pred = int(torch.argmax(vuln_logits).item())
 
     cwe_pred_idx = None
     cwe_proba = None
     cwe_name = "N/A"
     cwe_id = "N/A"
-    if out["cwe_logits"] is not None:
-        cwe_proba_t = torch.softmax(out["cwe_logits"], dim=-1)[0].cpu().tolist()
-        cwe_pred_idx = int(torch.argmax(out["cwe_logits"], dim=-1).item())
+    cwe_logits = averaged_logits["cwe_logits"]
+    if cwe_logits is not None:
+        cwe_proba_t = torch.softmax(cwe_logits, dim=-1).cpu().tolist()
+        cwe_pred_idx = int(torch.argmax(cwe_logits).item())
         cwe_proba = cwe_proba_t
         ordered_cwes = label_maps.get("ordered_cwes", [])
         if ordered_cwes and cwe_pred_idx < len(ordered_cwes):
@@ -133,9 +183,10 @@ def predict_one(
     sev_pred_idx = None
     sev_proba = None
     sev_name = "N/A"
-    if out["sev_logits"] is not None:
-        sev_proba_t = torch.softmax(out["sev_logits"], dim=-1)[0].cpu().tolist()
-        sev_pred_idx = int(torch.argmax(out["sev_logits"], dim=-1).item())
+    sev_logits = averaged_logits["sev_logits"]
+    if sev_logits is not None:
+        sev_proba_t = torch.softmax(sev_logits, dim=-1).cpu().tolist()
+        sev_pred_idx = int(torch.argmax(sev_logits).item())
         sev_proba = sev_proba_t
         sev_name = SEVERITY_NAMES[sev_pred_idx]
 

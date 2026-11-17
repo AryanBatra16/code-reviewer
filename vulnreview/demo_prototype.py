@@ -146,27 +146,52 @@ def load_model():
 def run_inference(code: str, model, tokenizer, label_maps, cfg, device, n_ig_steps: int = 20):
     """Full inference: classification + Integrated Gradients line scores."""
     max_len = cfg["model"].get("max_len", 512)
-    enc = tokenizer(
-        code, max_length=max_len, truncation=True,
-        padding="max_length", return_tensors="pt",
-    )
-    input_ids      = enc["input_ids"].to(device)
-    attention_mask = enc["attention_mask"].to(device)
-    token_type_ids = enc.get("token_type_ids")
+    from vulnreview.predict import _encode_token_chunks
+    encoded_chunks = _encode_token_chunks(code, tokenizer, max_len)
+    input_ids = encoded_chunks[0][0]["input_ids"].to(device)
+    attention_mask = encoded_chunks[0][0]["attention_mask"].to(device)
+    token_type_ids = encoded_chunks[0][0].get("token_type_ids")
     if token_type_ids is not None:
         token_type_ids = token_type_ids.to(device)
 
     # ── Forward pass for predictions
     with torch.no_grad():
-        out = model(input_ids=input_ids, attention_mask=attention_mask,
-                    token_type_ids=token_type_ids)
+        outputs = []
+        weights = []
+        for enc, content_len in encoded_chunks:
+            chunk_input_ids = enc["input_ids"].to(device)
+            chunk_attention_mask = enc["attention_mask"].to(device)
+            chunk_token_type_ids = enc.get("token_type_ids")
+            if chunk_token_type_ids is not None:
+                chunk_token_type_ids = chunk_token_type_ids.to(device)
+            outputs.append(model(
+                input_ids=chunk_input_ids,
+                attention_mask=chunk_attention_mask,
+                token_type_ids=chunk_token_type_ids,
+            ))
+            weights.append(content_len)
 
-    vuln_proba  = torch.softmax(out["vuln_logits"], dim=-1)[0].cpu().tolist()
-    vuln_pred   = int(torch.argmax(out["vuln_logits"], dim=-1).item())
-    cwe_pred_idx = int(torch.argmax(out["cwe_logits"], dim=-1).item()) if out["cwe_logits"] is not None else 10
-    cwe_proba    = torch.softmax(out["cwe_logits"], dim=-1)[0].cpu().tolist() if out["cwe_logits"] is not None else []
-    sev_pred_idx = int(torch.argmax(out["sev_logits"], dim=-1).item()) if out["sev_logits"] is not None else 1
-    sev_proba    = torch.softmax(out["sev_logits"], dim=-1)[0].cpu().tolist() if out["sev_logits"] is not None else [0.33, 0.33, 0.34]
+        total_weight = sum(weights)
+        vuln_logits = sum(
+            (out["vuln_logits"][0] * weight for out, weight in zip(outputs, weights))
+        ) / total_weight
+        cwe_logits = next((out["cwe_logits"] for out in outputs if out["cwe_logits"] is not None), None)
+        sev_logits = next((out["sev_logits"] for out in outputs if out["sev_logits"] is not None), None)
+        if cwe_logits is not None:
+            cwe_logits = sum(
+                (out["cwe_logits"][0] * weight for out, weight in zip(outputs, weights))
+            ) / total_weight
+        if sev_logits is not None:
+            sev_logits = sum(
+                (out["sev_logits"][0] * weight for out, weight in zip(outputs, weights))
+            ) / total_weight
+
+    vuln_proba  = torch.softmax(vuln_logits, dim=-1).cpu().tolist()
+    vuln_pred   = int(torch.argmax(vuln_logits).item())
+    cwe_pred_idx = int(torch.argmax(cwe_logits).item()) if cwe_logits is not None else 10
+    cwe_proba    = torch.softmax(cwe_logits, dim=-1).cpu().tolist() if cwe_logits is not None else []
+    sev_pred_idx = int(torch.argmax(sev_logits).item()) if sev_logits is not None else 1
+    sev_proba    = torch.softmax(sev_logits, dim=-1).cpu().tolist() if sev_logits is not None else [0.33, 0.33, 0.34]
 
     ordered_cwes = label_maps.get("ordered_cwes", list(CWE_INFO.keys()))
     cwe_id   = ordered_cwes[cwe_pred_idx] if cwe_pred_idx < len(ordered_cwes) else "Other"
@@ -642,8 +667,8 @@ This snippet appears to be **safe / patched**. The model found no significant vu
         b4v  = [0.594, 0.614, 0.095 * 5, 0.345, 0.687]
         fig_r = go.Figure()
         for name, vals, fill, line_c in [
-            ("B3 Single-Task", b3v, "rgba(52,152,219,0.15)", "#3498db"),
-            ("B4 Multi-Task",  b4v, "rgba(231,76,60,0.15)",  "#e74c3c"),
+            ("B3 Single-Task", b3v, "rgba(52, 152, 219, 0.15)", "#3498db"),
+            ("B4 Multi-Task",  b4v, "rgba(231, 76, 60, 0.15)",  "#e74c3c"),
         ]:
             fig_r.add_trace(go.Scatterpolar(
                 r=vals + [vals[0]], theta=cats + [cats[0]],

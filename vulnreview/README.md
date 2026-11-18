@@ -108,6 +108,21 @@ python -m vulnreview.explain --protocol P1 --max-samples 300
 streamlit run app/app.py
 ```
 
+### Docker Deployment
+
+The Docker image runs `demo_prototype.py` on port `8501`.
+
+From inside the `vulnreview` directory:
+
+```powershell
+docker login
+docker build -t YOUR_DOCKERHUB_USERNAME/vulnreview:latest .
+docker run --rm -p 8501:8501 YOUR_DOCKERHUB_USERNAME/vulnreview:latest
+docker push YOUR_DOCKERHUB_USERNAME/vulnreview:latest
+```
+
+Open `http://localhost:8501` after the container starts.
+
 ### 7. CLI Single Snippet Prediction
 ```powershell
 python -m vulnreview.predict --text "void f() { char b[8]; gets(b); }"

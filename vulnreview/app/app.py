@@ -265,16 +265,6 @@ def main():
         )
 
         code_input = ""
-        sample_path = ROOT / "examples" / "large_vulnerability_demo.cpp"
-        if sample_path.exists():
-            st.download_button(
-                "⬇️ Download large C++ sample",
-                data=sample_path.read_bytes(),
-                file_name="large_vulnerability_demo.cpp",
-                mime="text/x-c++src",
-                use_container_width=True,
-            )
-
         if input_mode == "Upload file":
             uploaded = st.file_uploader(
                 "Upload a C/C++ file or .diff file",
@@ -346,6 +336,24 @@ def main():
                     line_scores = result.get("line_scores", {})
                     dynamic_risk_lines = get_dynamic_risk_lines(line_scores)
                     st.caption(f"{len(dynamic_risk_lines)} lines highlighted by vulnerability risk score")
+
+                    ranked_lines = sorted(
+                        ((line_no, line_scores[line_no]) for line_no in dynamic_risk_lines),
+                        key=lambda item: -item[1],
+                    )
+                    line_summary = "  ".join(
+                        f'<span style="display:inline-block;margin:3px 6px 3px 0;padding:5px 9px;'
+                        f'border-radius:999px;background:#5a1f25;border:1px solid #9e4149;'
+                        f'color:#ffb3b8;font-size:12px;font-weight:700">'
+                        f'Line {line_no + 1} · {score:.3f}</span>'
+                        for line_no, score in ranked_lines
+                    )
+                    st.markdown(
+                        f'<div style="background:#111827;border:1px solid #273244;border-radius:10px;'
+                        f'padding:10px 12px;margin-bottom:10px">'
+                        f'<b>Highest-risk locations</b><br>{line_summary}</div>',
+                        unsafe_allow_html=True,
+                    )
                     st.markdown(
                         highlight_code_html(source_lines, line_scores),
                         unsafe_allow_html=True,

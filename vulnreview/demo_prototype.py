@@ -388,16 +388,6 @@ def main():
                 st.session_state["code_editor"] = uploaded_code
                 st.success(f"Loaded: `{uploaded.name}` ({len(uploaded_code)} chars)")
 
-            st.markdown("### ⬇️ Download Sample")
-            sample_path = ROOT / "examples" / "large_vulnerability_demo.cpp"
-            if sample_path.exists():
-                st.download_button(
-                    "Download large C++ sample",
-                    data=sample_path.read_bytes(),
-                    file_name="large_vulnerability_demo.cpp",
-                    mime="text/x-c++src",
-                    use_container_width=True,
-                )
 
         with lcol:
             st.markdown("### 📝 Code Editor")
@@ -520,8 +510,28 @@ def main():
                 st.markdown("### 🔎 Suspicious Line Highlighting")
                 dynamic_risk_lines = get_dynamic_risk_lines(result["line_scores"])
                 st.caption(f"{len(dynamic_risk_lines)} lines highlighted by risk score  |  🟥 = more suspicious")
-                html = render_code(result["source_lines"], result["line_scores"])
-                st.markdown(html, unsafe_allow_html=True)
+
+                ranked_lines = sorted(
+                    ((line_no, result["line_scores"][line_no]) for line_no in dynamic_risk_lines),
+                    key=lambda item: -item[1],
+                )
+                line_summary = "  ".join(
+                    f'<span style="display:inline-block;margin:3px 6px 3px 0;padding:5px 9px;'
+                    f'border-radius:999px;background:#5a1f25;border:1px solid #9e4149;'
+                    f'color:#ffb3b8;font-size:12px;font-weight:700">'
+                    f'Line {line_no + 1} · {score:.3f}</span>'
+                    for line_no, score in ranked_lines
+                )
+                st.markdown(
+                    f'<div style="background:#111827;border:1px solid #273244;border-radius:10px;'
+                    f'padding:10px 12px;margin-bottom:10px">'
+                    f'<b style="color:#ddd">Highest-risk locations</b><br>{line_summary}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    render_code(result["source_lines"], result["line_scores"]),
+                    unsafe_allow_html=True,
+                )
 
                 # ── Attribution chart
                 lscores = result["line_scores"]

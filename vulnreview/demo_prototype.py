@@ -370,6 +370,17 @@ def main():
                 st.session_state["code"] = uploaded.read().decode("utf-8", errors="replace")
                 st.success(f"Loaded: `{uploaded.name}` ({len(st.session_state['code'])} chars)")
 
+            st.markdown("### ⬇️ Download Sample")
+            sample_path = ROOT / "examples" / "large_vulnerability_demo.cpp"
+            if sample_path.exists():
+                st.download_button(
+                    "Download large C++ sample",
+                    data=sample_path.read_bytes(),
+                    file_name="large_vulnerability_demo.cpp",
+                    mime="text/x-c++src",
+                    use_container_width=True,
+                )
+
         with lcol:
             st.markdown("### 📝 Code Editor")
             st.caption("Paste **any** C/C++ code, git diff hunk, or function — model handles it dynamically.")

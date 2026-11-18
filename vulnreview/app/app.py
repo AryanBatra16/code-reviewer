@@ -246,6 +246,16 @@ def main():
         )
 
         code_input = ""
+        sample_path = ROOT / "examples" / "large_vulnerability_demo.cpp"
+        if sample_path.exists():
+            st.download_button(
+                "⬇️ Download large C++ sample",
+                data=sample_path.read_bytes(),
+                file_name="large_vulnerability_demo.cpp",
+                mime="text/x-c++src",
+                use_container_width=True,
+            )
+
         if input_mode == "Upload file":
             uploaded = st.file_uploader(
                 "Upload a C/C++ file or .diff file",

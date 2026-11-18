@@ -244,11 +244,12 @@ def main():
         )
         h1, h2, h3 = st.columns(3)
         with h1:
-            st.metric("Analyze Code", "Start")
+            st.metric("B1 · Accuracy", "53.13%")
         with h2:
-            st.metric("Training Pairs", "35,106")
+            st.metric("B2 · Accuracy", "53.54%")
         with h3:
-            st.metric("Loc@3", "81.67%")
+            st.metric("B3 · Accuracy", "53.08%")
+        st.metric("B4 · Accuracy", "51.65%")
 
     if page == "🔍 Analyze Code":
         if model is None:

@@ -363,10 +363,10 @@ def main():
 
         st.markdown("### Project Highlights")
         k1, k2, k3, k4 = st.columns(4)
-        with k1: st.metric("Base Model", "CodeBERT")
-        with k2: st.metric("Training Pairs", "35,106")
-        with k3: st.metric("Loc@1", "50.67%")
-        with k4: st.metric("Loc@3", "81.67%")
+        with k1: st.metric("B1 · Accuracy", "53.13%")
+        with k2: st.metric("B2 · Accuracy", "53.54%")
+        with k3: st.metric("B3 · Accuracy", "53.08%")
+        with k4: st.metric("B4 · Accuracy", "51.65%")
 
     # ═══════════════════════════════════════════════════
     # PAGE — ANALYZE

@@ -365,7 +365,8 @@ def main():
         with rcol:
             st.markdown("### 📁 Upload a File")
             uploaded = st.file_uploader("C/C++ / .diff / .patch",
-                                        type=["c","cpp","cc","h","diff","patch","txt"])
+                                        type=["c","cpp","cc","h","diff","patch","txt"],
+                                        key="cpp_source_upload")
             if uploaded:
                 st.session_state["code"] = uploaded.read().decode("utf-8", errors="replace")
                 st.success(f"Loaded: `{uploaded.name}` ({len(st.session_state['code'])} chars)")

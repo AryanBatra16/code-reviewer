@@ -239,6 +239,9 @@ def main():
             st.error(f"❌ Model checkpoint not found at: `{ckpt_path}`")
 
         st.markdown("### 📝 Submit Code")
+        if "uploaded_code" not in st.session_state:
+            st.session_state["uploaded_code"] = ""
+
         input_mode = st.radio(
             "Input mode",
             ["Type / paste code", "Upload file"],
@@ -260,16 +263,24 @@ def main():
             uploaded = st.file_uploader(
                 "Upload a C/C++ file or .diff file",
                 type=["c", "cpp", "cc", "h", "diff", "patch"],
+                key="cpp_source_upload",
             )
             if uploaded:
                 code_input = uploaded.read().decode("utf-8", errors="replace")
+                st.session_state["uploaded_code"] = code_input
+                st.code(code_input, language="c")
+            elif st.session_state["uploaded_code"]:
+                code_input = st.session_state["uploaded_code"]
                 st.code(code_input, language="c")
         else:
             code_input = st.text_area(
                 "Code input",
                 height=250,
                 placeholder="void foo() {\n    char buf[8];\n    gets(buf);  // vulnerable!\n}",
+                value=st.session_state["uploaded_code"],
             )
+            if code_input:
+                st.session_state["uploaded_code"] = code_input
 
         if st.button(
             "🔍 Analyze for Vulnerabilities",

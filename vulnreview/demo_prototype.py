@@ -368,8 +368,10 @@ def main():
                                         type=["c","cpp","cc","h","diff","patch","txt"],
                                         key="cpp_source_upload")
             if uploaded:
-                st.session_state["code"] = uploaded.read().decode("utf-8", errors="replace")
-                st.success(f"Loaded: `{uploaded.name}` ({len(st.session_state['code'])} chars)")
+                uploaded_code = uploaded.read().decode("utf-8", errors="replace")
+                st.session_state["code"] = uploaded_code
+                st.session_state["code_editor"] = uploaded_code
+                st.success(f"Loaded: `{uploaded.name}` ({len(uploaded_code)} chars)")
 
             st.markdown("### ⬇️ Download Sample")
             sample_path = ROOT / "examples" / "large_vulnerability_demo.cpp"
@@ -387,7 +389,7 @@ def main():
             st.caption("Paste **any** C/C++ code, git diff hunk, or function — model handles it dynamically.")
             code = st.text_area(
                 "code_input",
-                value=st.session_state.get("code", ""),
+                value=st.session_state.get("code_editor", st.session_state.get("code", "")),
                 height=320,
                 placeholder="// Paste any C/C++ code here…\nvoid foo() {\n    char buf[8];\n    gets(buf);\n}",
                 label_visibility="collapsed",
@@ -405,6 +407,7 @@ def main():
             with btn_col2:
                 if st.button("🗑️ Clear", use_container_width=True):
                     st.session_state["code"] = ""
+                    st.session_state["code_editor"] = ""
                     st.rerun()
 
         # ── Run analysis

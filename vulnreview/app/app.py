@@ -278,6 +278,7 @@ def main():
                 height=250,
                 placeholder="void foo() {\n    char buf[8];\n    gets(buf);  // vulnerable!\n}",
                 value=st.session_state["uploaded_code"],
+                key="production_code_input",
             )
             if code_input:
                 st.session_state["uploaded_code"] = code_input

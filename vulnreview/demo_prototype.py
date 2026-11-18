@@ -36,76 +36,6 @@ SEV_LABEL = {0: "Low", 1: "Medium", 2: "High / Critical"}
 SEV_COLOR = {"Low": "#2ecc71", "Medium": "#f39c12", "High / Critical": "#e74c3c"}
 SEV_EMOJI = {"Low": "🟢", "Medium": "🟠", "High / Critical": "🔴"}
 
-EXAMPLES = [
-    {
-        "label": "1 — Buffer Overflow (CWE-119)",
-        "code": """\
-// Vulnerable: no bounds check before memcpy
-void process_input(const char *user_data, size_t len) {
-    char local_buf[256];
-    memcpy(local_buf, user_data, len);  // OVERFLOW if len > 256
-    local_buf[len] = '\\0';
-    parse_command(local_buf);
-}""",
-        "note": "Missing `if (len >= sizeof(local_buf)) return;` guard — classic stack buffer overflow (CVE pattern).",
-    },
-    {
-        "label": "2 — Out-of-bounds Read (CWE-125)",
-        "code": """\
-// Vulnerable: index not validated
-int get_element(int *arr, int size, int idx) {
-    return arr[idx];   // OOB read if idx < 0 or idx >= size
-}""",
-        "note": "Missing bounds check on `idx` — out-of-bounds read allows information disclosure.",
-    },
-    {
-        "label": "3 — NULL Pointer Dereference (CWE-476)",
-        "code": """\
-// Vulnerable: malloc return not checked
-void allocate_node(struct node **out) {
-    struct node *n = malloc(sizeof(struct node));
-    n->value = 0;   // CRASH if malloc returns NULL
-    n->next  = NULL;
-    *out = n;
-}""",
-        "note": "Missing `if (!n) return;` after malloc — NULL pointer dereference when system is out of memory.",
-    },
-    {
-        "label": "4 — Use After Free (CWE-416)",
-        "code": """\
-// Vulnerable: use-after-free
-void remove_item(struct list *lst, struct item *it) {
-    free(it);
-    if (lst->head == it)   // USE AFTER FREE
-        lst->head = NULL;
-}""",
-        "note": "The `it` pointer is dereferenced after `free()` — exploitable for heap corruption.",
-    },
-    {
-        "label": "5 — Safe / Patched Code",
-        "code": """\
-// Safe: bounds-checked copy
-void process_input(const char *user_data, size_t len) {
-    char local_buf[256];
-    if (len >= sizeof(local_buf)) return;   // guard added
-    memcpy(local_buf, user_data, len);
-    local_buf[len] = '\\0';
-    parse_command(local_buf);
-}""",
-        "note": "This is the patched version — model should predict SAFE.",
-    },
-    {
-        "label": "6 — Integer Overflow (CWE-189)",
-        "code": """\
-// Vulnerable: integer overflow in size calculation
-void *safe_alloc(unsigned int count, unsigned int size) {
-    unsigned int total = count * size;  // overflows if count * size > UINT_MAX
-    return malloc(total);
-}""",
-        "note": "Missing overflow check: `if (count && total / count != size) return NULL;`",
-    },
-]
-
 # ── Model loading ─────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner="⚙️ Loading VulnReview model — please wait (~30 sec)…")
 def load_model():
@@ -416,14 +346,7 @@ def main():
         lcol, rcol = st.columns([3, 2])
 
         with rcol:
-            st.markdown("### 💡 Load an Example")
-            ex_idx = st.selectbox("Choose:", range(len(EXAMPLES)),
-                                  format_func=lambda i: EXAMPLES[i]["label"])
-            if st.button("📂 Load into editor", use_container_width=True):
-                st.session_state["code"] = EXAMPLES[ex_idx]["code"]
-            st.info(EXAMPLES[ex_idx]["note"])
-            st.markdown("---")
-            st.markdown("### 📁 Or Upload a File")
+            st.markdown("### 📁 Upload a File")
             uploaded = st.file_uploader("C/C++ / .diff / .patch",
                                         type=["c","cpp","cc","h","diff","patch","txt"])
             if uploaded:

@@ -50,50 +50,6 @@ CWE_NAMES = {
 SEVERITY_COLORS = {"Low": "#2ecc71", "Medium": "#f39c12", "High": "#e74c3c"}
 
 # ---------------------------------------------------------------------------
-# Built-in example snippets (from dataset test split, illustrative)
-# ---------------------------------------------------------------------------
-EXAMPLES = [
-    {
-        "label": "Buffer Overflow (CWE-119)",
-        "cwe": "CWE-119",
-        "code": '''// Vulnerable: no bounds check on user-supplied length
-void process_input(const char *user_data, size_t len) {
-    char local_buf[256];
-    // Missing: if (len >= sizeof(local_buf)) return;
-    memcpy(local_buf, user_data, len);  // Overflow if len > 256
-    local_buf[len] = \'\\0\';
-    parse_command(local_buf);
-}''',
-        "note": "Missing bounds check before memcpy — classic stack buffer overflow."
-    },
-    {
-        "label": "Out-of-bounds Read (CWE-125)",
-        "cwe": "CWE-125",
-        "code": '''// Vulnerable: array index not validated
-int get_element(int *arr, int size, int idx) {
-    // Missing: if (idx < 0 || idx >= size) return -1;
-    return arr[idx];  // OOB read if idx < 0 or idx >= size
-}
-''',
-        "note": "Array index `idx` is not validated before use — out-of-bounds read."
-    },
-    {
-        "label": "NULL Pointer Dereference (CWE-476)",
-        "cwe": "CWE-476",
-        "code": '''// Vulnerable: malloc result not checked
-void allocate_node(struct node **out) {
-    struct node *n = malloc(sizeof(struct node));
-    // Missing: if (!n) { *out = NULL; return; }
-    n->value = 0;   // Crash if malloc returns NULL
-    n->next  = NULL;
-    *out = n;
-}
-''',
-        "note": "malloc() return value not checked — NULL pointer dereference on OOM."
-    },
-]
-
-# ---------------------------------------------------------------------------
 # Config and model loading
 # ---------------------------------------------------------------------------
 
@@ -257,22 +213,11 @@ def main():
     st.header("📝 Input")
     col1, col2 = st.columns([3, 1])
     with col1:
-        input_mode = st.radio("Input mode", ["Type / paste code", "Upload file", "Built-in example"], horizontal=True)
+        input_mode = st.radio("Input mode", ["Type / paste code", "Upload file"], horizontal=True)
 
     code_input = ""
 
-    if input_mode == "Built-in example":
-        example_choice = st.selectbox(
-            "Choose example",
-            options=range(len(EXAMPLES)),
-            format_func=lambda i: EXAMPLES[i]["label"],
-        )
-        ex = EXAMPLES[example_choice]
-        code_input = ex["code"]
-        st.info(f"**{ex['label']}** — {ex['note']}")
-        st.code(code_input, language="c")
-
-    elif input_mode == "Upload file":
+    if input_mode == "Upload file":
         uploaded = st.file_uploader("Upload a C/C++ file or .diff file", type=["c", "cpp", "cc", "h", "diff", "patch"])
         if uploaded:
             code_input = uploaded.read().decode("utf-8", errors="replace")

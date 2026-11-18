@@ -229,7 +229,22 @@ def escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def render_code(lines, scores, top_k):
+def get_dynamic_risk_lines(scores):
+    positive_scores = [(line_no, score) for line_no, score in scores.items() if score > 0]
+    if not positive_scores:
+        return []
+
+    max_score = max(score for _, score in positive_scores)
+    threshold = max_score * 0.30
+    risk_lines = [
+        line_no
+        for line_no, score in sorted(positive_scores, key=lambda item: -item[1])
+        if score >= threshold
+    ]
+    return risk_lines or [positive_scores[0][0]]
+
+
+def render_code(lines, scores):
     if not any(v > 0 for v in scores.values()):
         body = "\n".join(
             f'<div style="font-family:Consolas,monospace;font-size:13px;padding:1px 10px;color:#ccc">'
@@ -238,11 +253,7 @@ def render_code(lines, scores, top_k):
         )
         return f'<div style="background:#0d1117;border-radius:8px;padding:10px;overflow-x:auto">{body}</div>'
 
-    ranked = [
-        line_no
-        for line_no, score in sorted(scores.items(), key=lambda item: -item[1])
-        if score > 0
-    ][:top_k]
+    ranked = get_dynamic_risk_lines(scores)
     top_set = set(ranked)
     rows = []
     for i, line in enumerate(lines):
@@ -507,9 +518,9 @@ def main():
 
                 # ── Highlighted code
                 st.markdown("### 🔎 Suspicious Line Highlighting")
-                top_k = 5
-                st.caption("Top 5 lines highlighted by Integrated Gradients attribution scores  |  🟥 = more suspicious")
-                html = render_code(result["source_lines"], result["line_scores"], top_k)
+                dynamic_risk_lines = get_dynamic_risk_lines(result["line_scores"])
+                st.caption(f"{len(dynamic_risk_lines)} lines highlighted by risk score  |  🟥 = more suspicious")
+                html = render_code(result["source_lines"], result["line_scores"])
                 st.markdown(html, unsafe_allow_html=True)
 
                 # ── Attribution chart
@@ -518,7 +529,8 @@ def main():
                     top_items = sorted(lscores.items(), key=lambda x: -x[1])[:min(12, len(lscores))]
                     ln  = [f"L{i+1}: {result['source_lines'][i][:25].strip()}" for i, _ in top_items]
                     sv  = [s for _, s in top_items]
-                    ci  = ["#e74c3c" if j < top_k else "#444" for j in range(len(sv))]
+                    ci  = ["#e74c3c" if line_no in dynamic_risk_lines else "#444"
+                           for line_no, _ in top_items]
                     fig_a = go.Figure(go.Bar(
                         x=ln, y=sv, marker_color=ci,
                         text=[f"{v:.2f}" for v in sv], textposition="auto",

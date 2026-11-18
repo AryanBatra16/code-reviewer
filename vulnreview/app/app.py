@@ -115,8 +115,24 @@ def predict(text: str, model, tokenizer, label_maps: dict, cfg: dict, device) ->
     return predict_one(text, model, tokenizer, label_maps, cfg, device, n_ig_steps=50)
 
 
-def highlight_code_html(source_lines: list[str], line_scores: dict[int, float], top_k: int) -> str:
-    """Generate HTML with top-k lines highlighted by attribution score intensity."""
+def get_dynamic_risk_lines(line_scores: dict[int, float]) -> list[int]:
+    """Select lines whose attribution score is meaningful relative to the strongest line."""
+    positive_scores = [(line_no, score) for line_no, score in line_scores.items() if score > 0]
+    if not positive_scores:
+        return []
+
+    max_score = max(score for _, score in positive_scores)
+    threshold = max_score * 0.30
+    risk_lines = [
+        line_no
+        for line_no, score in sorted(positive_scores, key=lambda item: -item[1])
+        if score >= threshold
+    ]
+    return risk_lines or [positive_scores[0][0]]
+
+
+def highlight_code_html(source_lines: list[str], line_scores: dict[int, float]) -> str:
+    """Generate HTML for dynamically selected suspicious lines."""
     if not line_scores or not source_lines:
         escaped = "\n".join(
             f'<span style="font-family:monospace">{_escape(l)}</span>'
@@ -125,17 +141,13 @@ def highlight_code_html(source_lines: list[str], line_scores: dict[int, float], 
         return f"<pre>{escaped}</pre>"
 
     max_score = max(line_scores.values()) if line_scores else 1.0
-    sorted_lines = [
-        (line_no, score)
-        for line_no, score in sorted(line_scores.items(), key=lambda item: -item[1])
-        if score > 0
-    ]
-    top_k_set = {line_no for line_no, _ in sorted_lines[:top_k]}
+    risk_lines = get_dynamic_risk_lines(line_scores)
+    risk_line_set = set(risk_lines)
 
     html_lines = []
     for i, line in enumerate(source_lines):
         score = line_scores.get(i, 0.0)
-        if i in top_k_set and max_score > 0:
+        if i in risk_line_set and max_score > 0:
             intensity = int(255 * (1 - score / max_score) * 0.7 + 255 * 0.3)
             bg = f"rgb(255, {intensity}, {intensity})"
             html_lines.append(
@@ -332,10 +344,10 @@ def main():
                     st.header("🔎 Suspicious Lines")
                     source_lines = result.get("source_lines", code_input.splitlines())
                     line_scores = result.get("line_scores", {})
-                    top_k = 5
-                    st.caption("Top 5 lines highlighted by vulnerability risk score")
+                    dynamic_risk_lines = get_dynamic_risk_lines(line_scores)
+                    st.caption(f"{len(dynamic_risk_lines)} lines highlighted by vulnerability risk score")
                     st.markdown(
-                        highlight_code_html(source_lines, line_scores, top_k),
+                        highlight_code_html(source_lines, line_scores),
                         unsafe_allow_html=True,
                     )
 

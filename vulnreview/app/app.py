@@ -233,7 +233,6 @@ def main():
             st.metric("Training Pairs", "35,106")
         with h3:
             st.metric("Loc@3", "81.67%")
-        st.info("Choose a page from the sidebar to begin.")
 
     if page == "🔍 Analyze Code":
         if model is None:
@@ -367,16 +366,15 @@ def main():
                             st.warning(f"Could not read results: {e}")
 
     if page == "🧠 Model & Pipeline":
-        status = "✅ Loaded" if model is not None else "❌ Not loaded"
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("Model Status", status)
-        with c2:
             st.metric("Base Model", "CodeBERT")
-        with c3:
+        with c2:
             st.metric("IG Precision", "50 steps")
-        with c4:
+        with c3:
             st.metric("Test F1", test_f1)
+        with c4:
+            st.metric("Loc@3", "81.67%")
 
         st.markdown("### Model Details")
         d1, d2 = st.columns(2)

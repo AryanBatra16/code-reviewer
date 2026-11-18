@@ -353,8 +353,6 @@ def main():
         with k3: st.metric("Loc@1", "50.67%")
         with k4: st.metric("Loc@3", "81.67%")
 
-        st.info("Choose a page from the sidebar to begin.")
-
     # ═══════════════════════════════════════════════════
     # PAGE — ANALYZE
     # ═══════════════════════════════════════════════════
@@ -651,15 +649,6 @@ This snippet appears to be **safe / patched**. The model found no significant vu
     # PAGE — MODEL & PIPELINE
     # ═══════════════════════════════════════════════════
     if page == "🧠 Model & Pipeline":
-        status_color = "#2ecc71" if model_ok else "#e74c3c"
-        status_text = f"✅ Loaded · {device}" if model_ok else "❌ Model not found"
-        st.markdown(
-            f'<div style="background:{status_color}18;border:1px solid {status_color};'
-            f'border-radius:12px;padding:16px;margin-bottom:16px">'
-            f'<b>Model Status</b><br><span style="font-size:20px">{status_text}</span></div>',
-            unsafe_allow_html=True,
-        )
-
         c1, c2, c3, c4 = st.columns(4)
         with c1: card("Base Model", "CodeBERT", "#667eea", "125M parameters")
         with c2: card("Prediction Heads", "3", "#9b59b6", "Vulnerability · CWE · Severity")

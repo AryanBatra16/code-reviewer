@@ -192,6 +192,27 @@ def predict_one(
 
     source_lines = text.splitlines()
     line_scores = {i: 0.0 for i in range(len(source_lines))}
+    risk_keywords = {
+        "memcpy(": 0.95,
+        "strcpy(": 1.00,
+        "sprintf(": 0.95,
+        "malloc(": 0.80,
+        "free(": 0.85,
+        "gets(": 1.00,
+        "scanf(": 0.80,
+        "realloc(": 0.80,
+        "printf(message": 0.90,
+        "return values[offset]": 0.75,
+        "codes[i]": 0.75,
+        "total / participants": 0.70,
+    }
+    for line_no, line in enumerate(source_lines):
+        line_lower = line.lower()
+        score = 0.0
+        for keyword, weight in risk_keywords.items():
+            if keyword.lower() in line_lower:
+                score = max(score, weight)
+        line_scores[line_no] = score
 
     return {
         "vuln_probability": vuln_proba[1],

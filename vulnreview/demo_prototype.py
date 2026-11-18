@@ -238,7 +238,11 @@ def render_code(lines, scores, top_k):
         )
         return f'<div style="background:#0d1117;border-radius:8px;padding:10px;overflow-x:auto">{body}</div>'
 
-    ranked = sorted(scores, key=lambda x: -scores[x])[:top_k]
+    ranked = [
+        line_no
+        for line_no, score in sorted(scores.items(), key=lambda item: -item[1])
+        if score > 0
+    ][:top_k]
     top_set = set(ranked)
     rows = []
     for i, line in enumerate(lines):
@@ -503,8 +507,8 @@ def main():
 
                 # ── Highlighted code
                 st.markdown("### 🔎 Suspicious Line Highlighting")
-                top_k = len(result["source_lines"])
-                st.caption("All lines highlighted by Integrated Gradients attribution scores  |  🟥 = most suspicious")
+                top_k = 5
+                st.caption("Top 5 lines highlighted by Integrated Gradients attribution scores  |  🟥 = more suspicious")
                 html = render_code(result["source_lines"], result["line_scores"], top_k)
                 st.markdown(html, unsafe_allow_html=True)
 

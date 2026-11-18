@@ -125,8 +125,12 @@ def highlight_code_html(source_lines: list[str], line_scores: dict[int, float], 
         return f"<pre>{escaped}</pre>"
 
     max_score = max(line_scores.values()) if line_scores else 1.0
-    sorted_lines = sorted(line_scores.items(), key=lambda x: -x[1])
-    top_k_set = {l for l, _ in sorted_lines[:top_k]}
+    sorted_lines = [
+        (line_no, score)
+        for line_no, score in sorted(line_scores.items(), key=lambda item: -item[1])
+        if score > 0
+    ]
+    top_k_set = {line_no for line_no, _ in sorted_lines[:top_k]}
 
     html_lines = []
     for i, line in enumerate(source_lines):
@@ -328,8 +332,8 @@ def main():
                     st.header("🔎 Suspicious Lines")
                     source_lines = result.get("source_lines", code_input.splitlines())
                     line_scores = result.get("line_scores", {})
-                    top_k = len(source_lines)
-                    st.caption("All lines are highlighted using Integrated Gradients attribution")
+                    top_k = 5
+                    st.caption("Top 5 lines highlighted by vulnerability risk score")
                     st.markdown(
                         highlight_code_html(source_lines, line_scores, top_k),
                         unsafe_allow_html=True,

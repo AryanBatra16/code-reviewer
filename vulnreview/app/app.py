@@ -112,7 +112,7 @@ def get_test_f1_from_results(results_dir: Path) -> str:
 def predict(text: str, model, tokenizer, label_maps: dict, cfg: dict, device) -> dict:
     """Run inference on text. Returns prediction dict."""
     from vulnreview.predict import predict_one
-    return predict_one(text, model, tokenizer, label_maps, cfg, device)
+    return predict_one(text, model, tokenizer, label_maps, cfg, device, n_ig_steps=50)
 
 
 def highlight_code_html(source_lines: list[str], line_scores: dict[int, float], top_k: int) -> str:
@@ -179,7 +179,6 @@ def main():
     # Sidebar
     with st.sidebar:
         st.header("⚙️ Settings")
-        top_k = st.slider("Top-K suspicious lines to highlight", 1, 10, 3)
         st.divider()
         st.header("ℹ️ Model Info")
         st.markdown(f"**Checkpoint**: `{Path(ckpt_path).name if ckpt_path else 'Not loaded'}`")
@@ -279,15 +278,16 @@ def main():
 
                 # Highlighted code
                 st.header("🔎 Suspicious Lines")
-                st.caption(f"Top-{top_k} lines highlighted by attribution score (red = more suspicious)")
                 source_lines = result.get("source_lines", code_input.splitlines())
                 line_scores = result.get("line_scores", {})
+                top_k = len(source_lines)
+                st.caption("All lines highlighted by attribution score (red = more suspicious)")
                 html = highlight_code_html(source_lines, line_scores, top_k)
                 st.markdown(html, unsafe_allow_html=True)
 
                 # Code review comment
                 st.header("💬 Code Review Comment")
-                top_lines = sorted(line_scores.items(), key=lambda x: -x[1])[:top_k] if line_scores else []
+                top_lines = sorted(line_scores.items(), key=lambda x: -x[1])[:3] if line_scores else []
                 top_line_nums = [i+1 for i, _ in top_lines]
                 if verdict == "VULNERABLE":
                     comment = (

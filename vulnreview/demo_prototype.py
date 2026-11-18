@@ -73,7 +73,7 @@ def load_model():
 
 
 # ── Inference with Integrated Gradients ──────────────────────────────────────
-def run_inference(code: str, model, tokenizer, label_maps, cfg, device, n_ig_steps: int = 20):
+def run_inference(code: str, model, tokenizer, label_maps, cfg, device, n_ig_steps: int = 50):
     """Full inference: classification + Integrated Gradients line scores."""
     max_len = cfg["model"].get("max_len", 512)
     from vulnreview.predict import _encode_token_chunks
@@ -307,9 +307,6 @@ def main():
     # Sidebar
     with st.sidebar:
         st.markdown("## ⚙️ Controls")
-        top_k     = st.slider("🔴 Lines to highlight", 1, 8, 3)
-        ig_steps  = st.slider("🔬 IG precision steps", 10, 50, 20,
-                               help="More steps = more accurate attribution, slower")
         st.divider()
         st.markdown("## 🤖 Model Status")
         if model_ok:
@@ -382,7 +379,7 @@ def main():
         if analyze and code.strip() and model_ok:
             with st.spinner("🤖 Running VulnReview model + Integrated Gradients…"):
                 try:
-                    result = run_inference(code, model, tokenizer, label_maps, cfg, device, ig_steps)
+                    result = run_inference(code, model, tokenizer, label_maps, cfg, device, 50)
                 except Exception as e:
                     st.error(f"Inference failed: {e}")
                     result = None
@@ -471,7 +468,8 @@ def main():
 
                 # ── Highlighted code
                 st.markdown("### 🔎 Suspicious Line Highlighting")
-                st.caption(f"Top-{top_k} lines ranked by Integrated Gradients attribution scores  |  🟥 = most suspicious")
+                top_k = len(result["source_lines"])
+                st.caption("All lines highlighted by Integrated Gradients attribution scores  |  🟥 = most suspicious")
                 html = render_code(result["source_lines"], result["line_scores"], top_k)
                 st.markdown(html, unsafe_allow_html=True)
 
@@ -523,7 +521,7 @@ def main():
 
                 # ── Auto code review comment
                 st.markdown("### 💬 Auto-Generated Code Review Comment")
-                top_lns = sorted(lscores, key=lambda x: -lscores[x])[:top_k]
+                top_lns = sorted(lscores, key=lambda x: -lscores[x])[:3]
                 top_ln_str = ", ".join(f"Line {i+1}" for i in top_lns) if top_lns else "see above"
                 if is_vuln:
                     st.error(f"""**⚠️ Security Issue Detected: {cwe_id} — {cwe_name}**

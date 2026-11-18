@@ -159,14 +159,23 @@ def main():
         page_title="VulnReview",
         page_icon="🔍",
         layout="wide",
-        initial_sidebar_state="collapsed",
+        initial_sidebar_state="expanded",
     )
 
     st.markdown(
         """
         <style>
         [data-testid="stAppViewContainer"] { background: linear-gradient(135deg,#090d14,#101625); }
-        [data-testid="stSidebar"] { display:none; }
+        [data-testid="stSidebar"] {
+            background:#0d1117;
+            border-right:1px solid #20293a;
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label {
+            border-radius:8px;padding:8px 10px;margin:3px 0;
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+            background:#20294a;
+        }
         [data-testid="stHeader"] { background:rgba(9,13,20,.75); }
         .stTabs [data-baseweb="tab-list"] { gap:8px; }
         .stTabs [data-baseweb="tab"] {
@@ -198,13 +207,35 @@ def main():
     results_dir = ROOT / cfg.get("results", {}).get("dir", "results")
     test_f1 = get_test_f1_from_results(results_dir)
 
-    analyze_tab, model_tab, about_tab = st.tabs([
-        "🔍 Analyze Code",
-        "🧠 Model & Pipeline",
-        "📚 About",
-    ])
+    with st.sidebar:
+        st.markdown("## 🛡️ VulnReview")
+        st.caption("AI-powered code security review")
+        st.divider()
+        page = st.radio(
+            "Navigation",
+            ["🏠 Home", "🔍 Analyze Code", "📊 Training Results", "🧠 Model & Pipeline", "📚 About"],
+            label_visibility="collapsed",
+        )
+        st.divider()
+        st.markdown("**Author**")
+        st.caption("Aryan Batra · 24CSU027\n\nThe NorthCap University")
 
-    with analyze_tab:
+    if page == "🏠 Home":
+        st.markdown("## Welcome to VulnReview")
+        st.markdown(
+            "Use the sidebar to analyze code, review experimental results, inspect the model "
+            "pipeline, or learn about the project."
+        )
+        h1, h2, h3 = st.columns(3)
+        with h1:
+            st.metric("Analyze Code", "Start")
+        with h2:
+            st.metric("Training Pairs", "35,106")
+        with h3:
+            st.metric("Loc@3", "81.67%")
+        st.info("Choose a page from the sidebar to begin.")
+
+    if page == "🔍 Analyze Code":
         if model is None:
             st.error(f"❌ Model checkpoint not found at: `{ckpt_path}`")
 
@@ -302,7 +333,40 @@ def main():
         elif model is not None and not code_input.strip():
             st.info("Paste code or upload a file, then click **Analyze for Vulnerabilities**.")
 
-    with model_tab:
+    if page == "📊 Training Results":
+        st.markdown("## 📊 Training Results")
+        st.caption("Results reported from the project evaluation protocols.")
+        r1, r2, r3 = st.columns(3)
+        with r1:
+            st.metric("P1 Test F1", "0.5432")
+        with r2:
+            st.metric("P2 Test F1", "0.5942")
+        with r3:
+            st.metric("P3 Test F1", "0.5819")
+
+        st.markdown("### Line Localization")
+        l1, l2 = st.columns(2)
+        with l1:
+            st.metric("Loc@1", "50.67%")
+        with l2:
+            st.metric("Loc@3", "81.67%")
+
+        if results_dir.exists():
+            result_files = sorted(results_dir.glob("train_results_*.csv"))
+            if result_files:
+                st.markdown("### Available Experiment Results")
+                for result_file in result_files:
+                    with st.expander(result_file.name):
+                        try:
+                            st.dataframe(
+                                pd.read_csv(result_file).round(4),
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+                        except Exception as e:
+                            st.warning(f"Could not read results: {e}")
+
+    if page == "🧠 Model & Pipeline":
         status = "✅ Loaded" if model is not None else "❌ Not loaded"
         c1, c2, c3, c4 = st.columns(4)
         with c1:
@@ -342,7 +406,7 @@ def main():
             with column:
                 st.info(f"**{title}**\n\n{detail}")
 
-    with about_tab:
+    if page == "📚 About":
         st.markdown("### About VulnReview")
         st.markdown(
             "VulnReview is a patch-pair multi-task system for vulnerability-aware code review. "

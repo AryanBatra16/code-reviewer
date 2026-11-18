@@ -277,14 +277,17 @@ def main():
     st.set_page_config(
         page_title="VulnReview — AI Code Security",
         page_icon="🛡️", layout="wide",
-        initial_sidebar_state="collapsed",
+        initial_sidebar_state="expanded",
     )
 
     # CSS
     st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] { background: linear-gradient(135deg,#090d14,#101625); }
-    [data-testid="stSidebar"] { display:none; }
+    [data-testid="stSidebar"] { background:#0d1117;border-right:1px solid #20293a; }
+    [data-testid="stSidebarNav"] { display:none; }
+    [data-testid="stSidebar"] [role="radiogroup"] label { border-radius:8px;padding:8px 10px;margin:3px 0; }
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) { background:#20294a; }
     [data-testid="stHeader"] { background:rgba(9,13,20,0.75); }
     .stTabs [data-baseweb="tab-list"] { gap:8px; }
     .stTabs [data-baseweb="tab"] {
@@ -316,18 +319,46 @@ def main():
     # Load model
     model, tokenizer, label_maps, cfg, device, model_ok = load_model()
 
-    # Tabs
-    t1, t2, t3, t4 = st.tabs([
-        "🔍 Analyze Code",
-        "📊 Training Results",
-        "🧠 Model & Pipeline",
-        "📚 About",
-    ])
+    with st.sidebar:
+        st.markdown("## 🛡️ VulnReview")
+        st.caption("AI-powered code security review")
+        st.divider()
+        page = st.radio(
+            "Navigation",
+            ["🏠 Home", "🔍 Analyze Code", "📊 Training Results", "🧠 Model & Pipeline", "📚 About"],
+            label_visibility="collapsed",
+        )
+        st.divider()
+        st.markdown("**Author**")
+        st.caption("Aryan Batra · 24CSU027\n\nThe NorthCap University")
 
     # ═══════════════════════════════════════════════════
-    # TAB 1 — ANALYZE
+    # PAGE — HOME
     # ═══════════════════════════════════════════════════
-    with t1:
+    if page == "🏠 Home":
+        st.markdown("## Welcome to VulnReview")
+        st.markdown(
+            "Explore vulnerability detection, model performance, architecture, and research results "
+            "from the sidebar."
+        )
+        h1, h2, h3 = st.columns(3)
+        with h1: card("Analyze Code", "Paste or upload", "#667eea", "Run AI vulnerability analysis")
+        with h2: card("Training Results", "P1 · P2 · P3", "#9b59b6", "Experimental performance")
+        with h3: card("Model & Pipeline", "CodeBERT", "#3498db", "Architecture and explainability")
+
+        st.markdown("### Project Highlights")
+        k1, k2, k3, k4 = st.columns(4)
+        with k1: st.metric("Base Model", "CodeBERT")
+        with k2: st.metric("Training Pairs", "35,106")
+        with k3: st.metric("Loc@1", "50.67%")
+        with k4: st.metric("Loc@3", "81.67%")
+
+        st.info("Choose a page from the sidebar to begin.")
+
+    # ═══════════════════════════════════════════════════
+    # PAGE — ANALYZE
+    # ═══════════════════════════════════════════════════
+    if page == "🔍 Analyze Code":
         if not model_ok:
             st.error("❌ Model checkpoint `models/best_B4_P1.pt` not found. Please train the model first.")
 
@@ -532,9 +563,9 @@ This snippet appears to be **safe / patched**. The model found no significant vu
 > *Note: Always confirm with a security engineer. The model is trained on C/C++ from Big-Vul and may not generalise to all codebases.*""")
 
     # ═══════════════════════════════════════════════════
-    # TAB 2 — RESULTS
+    # PAGE — TRAINING RESULTS
     # ═══════════════════════════════════════════════════
-    with t2:
+    if page == "📊 Training Results":
         st.markdown("### 📊 Experimental Results — All 18 Model-Seed Combinations")
         st.caption("All numbers from actual training runs (seeds 0, 1, 2). No values fabricated.")
 
@@ -617,9 +648,9 @@ This snippet appears to be **safe / patched**. The model found no significant vu
             st.dataframe(df[show_cols].round(4), use_container_width=True, hide_index=True)
 
     # ═══════════════════════════════════════════════════
-    # TAB 3 — MODEL & PIPELINE
+    # PAGE — MODEL & PIPELINE
     # ═══════════════════════════════════════════════════
-    with t3:
+    if page == "🧠 Model & Pipeline":
         status_color = "#2ecc71" if model_ok else "#e74c3c"
         status_text = f"✅ Loaded · {device}" if model_ok else "❌ Model not found"
         st.markdown(
@@ -671,9 +702,9 @@ This snippet appears to be **safe / patched**. The model found no significant vu
             """)
 
     # ═══════════════════════════════════════════════════
-    # TAB 4 — ABOUT
+    # PAGE — ABOUT
     # ═══════════════════════════════════════════════════
-    with t4:
+    if page == "📚 About":
         ac1, ac2 = st.columns(2)
         with ac1:
             st.markdown("""

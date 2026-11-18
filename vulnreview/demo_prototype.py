@@ -277,13 +277,25 @@ def main():
     st.set_page_config(
         page_title="VulnReview — AI Code Security",
         page_icon="🛡️", layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
 
     # CSS
     st.markdown("""
     <style>
-    [data-testid="stAppViewContainer"] { background: #0a0d13; }
+    [data-testid="stAppViewContainer"] { background: linear-gradient(135deg,#090d14,#101625); }
+    [data-testid="stSidebar"] { display:none; }
+    [data-testid="stHeader"] { background:rgba(9,13,20,0.75); }
+    .stTabs [data-baseweb="tab-list"] { gap:8px; }
+    .stTabs [data-baseweb="tab"] {
+      background:#151b2a;border-radius:10px 10px 4px 4px;
+      padding:10px 18px;border:1px solid #222a3d;
+    }
+    .stTabs [aria-selected="true"] { background:#20294a;border-bottom:3px solid #667eea; }
+    [data-testid="stMetric"] { background:#111827;border:1px solid #273244;border-radius:12px;padding:14px; }
+    .stTextArea textarea { background:#0d1117 !important;border:1px solid #303a4f !important;border-radius:10px; }
+    [data-testid="stButton"] button { border-radius:9px !important;font-weight:700; }
+    [data-testid="stFileUploader"] { background:#111827;border:1px dashed #4a5570;border-radius:12px;padding:10px; }
     .main-title { font-size:2.5rem;font-weight:900;
       background:linear-gradient(135deg,#667eea,#f093fb);
       -webkit-background-clip:text;-webkit-text-fill-color:transparent; }
@@ -304,34 +316,13 @@ def main():
     # Load model
     model, tokenizer, label_maps, cfg, device, model_ok = load_model()
 
-    # Sidebar
-    with st.sidebar:
-        st.markdown("## ⚙️ Controls")
-        st.divider()
-        st.markdown("## 🤖 Model Status")
-        if model_ok:
-            st.success(f"✅ Loaded · {device}")
-        else:
-            st.error("❌ Model not found")
-        st.markdown("""
-**Base**: `codebert-base` (125M)  
-**Heads**: Vuln · CWE (11-class) · Severity  
-**Dataset**: Big-Vul (35,106 pairs)  
-**Test F1 (B3, P1)**: **0.617 ± 0.007**  
-**Sev-F1 (B4, P2)**: **0.345** (6.3× > B3)  
-**Loc@3**: **81.67%**
-        """)
-        st.divider()
-        st.markdown("## 📖 Pipeline")
-        st.markdown("""
-1. Tokenise with CodeBERT tokeniser  
-2. 12-layer Transformer encoder  
-3. 3 prediction heads simultaneously  
-4. Integrated Gradients → line scores  
-        """)
-
     # Tabs
-    t1, t2, t3 = st.tabs(["🔍  Analyze Code", "📊  Training Results", "📚  About & Architecture"])
+    t1, t2, t3, t4 = st.tabs([
+        "🔍 Analyze Code",
+        "📊 Training Results",
+        "🧠 Model & Pipeline",
+        "📚 About",
+    ])
 
     # ═══════════════════════════════════════════════════
     # TAB 1 — ANALYZE
@@ -626,9 +617,63 @@ This snippet appears to be **safe / patched**. The model found no significant vu
             st.dataframe(df[show_cols].round(4), use_container_width=True, hide_index=True)
 
     # ═══════════════════════════════════════════════════
-    # TAB 3 — ABOUT
+    # TAB 3 — MODEL & PIPELINE
     # ═══════════════════════════════════════════════════
     with t3:
+        status_color = "#2ecc71" if model_ok else "#e74c3c"
+        status_text = f"✅ Loaded · {device}" if model_ok else "❌ Model not found"
+        st.markdown(
+            f'<div style="background:{status_color}18;border:1px solid {status_color};'
+            f'border-radius:12px;padding:16px;margin-bottom:16px">'
+            f'<b>Model Status</b><br><span style="font-size:20px">{status_text}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: card("Base Model", "CodeBERT", "#667eea", "125M parameters")
+        with c2: card("Prediction Heads", "3", "#9b59b6", "Vulnerability · CWE · Severity")
+        with c3: card("IG Precision", "50 steps", "#3498db", "Maximum configured precision")
+        with c4: card("Localization", "Loc@3 81.67%", "#e67e22", "P1 evaluation")
+
+        st.markdown("### 📖 Inference Pipeline")
+        p1, p2, p3, p4 = st.columns(4)
+        for column, icon, title, detail in [
+            (p1, "1", "Tokenize", "CodeBERT tokenizer with 512-token chunks"),
+            (p2, "2", "Encode", "12-layer CodeBERT Transformer"),
+            (p3, "3", "Predict", "Vulnerability, CWE and severity heads"),
+            (p4, "4", "Explain", "Integrated Gradients mapped to source lines"),
+        ]:
+            with column:
+                st.markdown(
+                    f'<div style="background:#111827;border:1px solid #273244;border-radius:12px;'
+                    f'padding:16px;height:150px">'
+                    f'<div style="color:#667eea;font-size:24px;font-weight:900">{icon}</div>'
+                    f'<div style="font-size:18px;font-weight:800;margin:8px 0">{title}</div>'
+                    f'<div style="color:#aaa;font-size:13px">{detail}</div></div>',
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown("### Project Specifications")
+        m1, m2 = st.columns(2)
+        with m1:
+            st.markdown("""
+- **Dataset:** Big-Vul
+- **Training pairs:** 35,106
+- **Protocols:** P1 Random · P2 Temporal · P3 Cross-project
+- **Checkpoint:** `best_B4_P1.pt`
+            """)
+        with m2:
+            st.markdown("""
+- **Vulnerability F1:** 0.617 (P1)
+- **Severity F1:** 0.345 (P2)
+- **Loc@1:** 50.67%
+- **Loc@3:** 81.67%
+            """)
+
+    # ═══════════════════════════════════════════════════
+    # TAB 4 — ABOUT
+    # ═══════════════════════════════════════════════════
+    with t4:
         ac1, ac2 = st.columns(2)
         with ac1:
             st.markdown("""

@@ -159,10 +159,32 @@ def main():
         page_title="VulnReview",
         page_icon="🔍",
         layout="wide",
+        initial_sidebar_state="collapsed",
     )
 
-    st.title("🔍 VulnReview")
-    st.subheader("Patch-Pair Multi-Task Learning for Vulnerability-Aware Code Review")
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"] { background: linear-gradient(135deg,#090d14,#101625); }
+        [data-testid="stSidebar"] { display:none; }
+        [data-testid="stHeader"] { background:rgba(9,13,20,.75); }
+        .stTabs [data-baseweb="tab-list"] { gap:8px; }
+        .stTabs [data-baseweb="tab"] {
+          background:#151b2a;border:1px solid #222a3d;
+          border-radius:10px 10px 4px 4px;padding:10px 18px;
+        }
+        .stTabs [aria-selected="true"] { background:#20294a;border-bottom:3px solid #667eea; }
+        [data-testid="stMetric"] { background:#111827;border:1px solid #273244;border-radius:12px;padding:14px; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<h1 style="margin-bottom:0">🛡️ VulnReview</h1>'
+        '<p style="color:#9aa4b2;margin-top:4px">'
+        'Patch-Pair Multi-Task AI for Vulnerability-Aware Code Review</p>',
+        unsafe_allow_html=True,
+    )
 
     # Disclaimer
     st.warning(
@@ -176,137 +198,161 @@ def main():
     results_dir = ROOT / cfg.get("results", {}).get("dir", "results")
     test_f1 = get_test_f1_from_results(results_dir)
 
-    # Sidebar
-    with st.sidebar:
-        st.header("⚙️ Settings")
-        st.divider()
-        st.header("ℹ️ Model Info")
-        st.markdown(f"**Checkpoint**: `{Path(ckpt_path).name if ckpt_path else 'Not loaded'}`")
-        st.markdown(f"**Base model**: `microsoft/codebert-base`")
-        st.markdown(f"**Training protocol**: P1 (Random, commit-grouped)")
-        st.markdown(f"**Test F1**: {test_f1}")
-        st.markdown(f"**Device**: `{device}`")
-        st.divider()
-        st.header("📚 About")
-        st.markdown(
-            "Built on [Big-Vul](https://github.com/ZeoVan/MSR_20_Code_vulnerability_csv_Dataset) "
-            "(Fan et al., MSR 2020) and [CodeBERT](https://arxiv.org/abs/2002.08155) "
-            "(Feng et al., 2020).\n\n"
-            "**Author**: Aryan Batra (24CSU027), The NorthCap University"
+    analyze_tab, model_tab, about_tab = st.tabs([
+        "🔍 Analyze Code",
+        "🧠 Model & Pipeline",
+        "📚 About",
+    ])
+
+    with analyze_tab:
+        if model is None:
+            st.error(f"❌ Model checkpoint not found at: `{ckpt_path}`")
+
+        st.markdown("### 📝 Submit Code")
+        input_mode = st.radio(
+            "Input mode",
+            ["Type / paste code", "Upload file"],
+            horizontal=True,
         )
 
-    # Model status
-    if model is None:
-        st.error(
-            f"❌ Model checkpoint not found at: `{ckpt_path}`\n\n"
-            "**To train the model, run:**\n"
-            "```bash\n"
-            "cd vulnreview\n"
-            "python -m vulnreview.data_prep\n"
-            "python -m vulnreview.train --protocol P1 --model B4 --seeds 0 1 2\n"
-            "```"
-        )
-        st.info("You can still browse the built-in examples below.")
+        code_input = ""
+        if input_mode == "Upload file":
+            uploaded = st.file_uploader(
+                "Upload a C/C++ file or .diff file",
+                type=["c", "cpp", "cc", "h", "diff", "patch"],
+            )
+            if uploaded:
+                code_input = uploaded.read().decode("utf-8", errors="replace")
+                st.code(code_input, language="c")
+        else:
+            code_input = st.text_area(
+                "Code input",
+                height=250,
+                placeholder="void foo() {\n    char buf[8];\n    gets(buf);  // vulnerable!\n}",
+            )
 
-    # Input section
-    st.header("📝 Input")
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        input_mode = st.radio("Input mode", ["Type / paste code", "Upload file"], horizontal=True)
+        if st.button(
+            "🔍 Analyze for Vulnerabilities",
+            type="primary",
+            disabled=(model is None or not code_input.strip()),
+            use_container_width=True,
+        ):
+            with st.spinner("Running VulnReview with 50-step Integrated Gradients..."):
+                try:
+                    result = predict(code_input, model, tokenizer, label_maps, cfg, device)
+                    st.header("📊 Analysis Results")
 
-    code_input = ""
-
-    if input_mode == "Upload file":
-        uploaded = st.file_uploader("Upload a C/C++ file or .diff file", type=["c", "cpp", "cc", "h", "diff", "patch"])
-        if uploaded:
-            code_input = uploaded.read().decode("utf-8", errors="replace")
-            st.code(code_input, language="c")
-
-    else:
-        code_input = st.text_area(
-            "Paste C/C++ snippet or unified-diff hunk here:",
-            height=250,
-            placeholder="void foo() {\n    char buf[8];\n    gets(buf);  // vulnerable!\n}",
-        )
-
-    # Analyze button
-    if st.button("🔍 Analyze", type="primary", disabled=(model is None or not code_input.strip())):
-        with st.spinner("Running model inference..."):
-            try:
-                result = predict(code_input, model, tokenizer, label_maps, cfg, device)
-
-                st.header("📊 Results")
-
-                # Vuln probability
-                col1, col2, col3 = st.columns(3)
-                vuln_prob = result["vuln_probability"]
-                fixed_prob = result["fixed_probability"]
-                verdict = result["vuln_prediction"]
-
-                with col1:
-                    color = "#e74c3c" if verdict == "VULNERABLE" else "#2ecc71"
-                    st.markdown(
-                        f'<div style="text-align:center;padding:20px;background:{color};border-radius:10px;color:white">'
-                        f'<h2>{verdict}</h2>'
-                        f'<p>Vuln: {vuln_prob:.1%} | Fixed: {fixed_prob:.1%}</p>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-                    st.progress(vuln_prob, text=f"Vulnerability probability: {vuln_prob:.1%}")
-
-                with col2:
+                    col1, col2, col3 = st.columns(3)
+                    vuln_prob = result["vuln_probability"]
+                    verdict = result["vuln_prediction"]
                     cwe = result["cwe_id"]
                     cwe_name = result["cwe_name"]
                     cwe_conf = result.get("cwe_confidence", 0)
-                    st.metric("Predicted CWE", cwe, delta=None)
-                    st.caption(cwe_name)
-                    if cwe_conf:
-                        st.progress(float(cwe_conf), text=f"Confidence: {cwe_conf:.1%}")
-
-                with col3:
                     sev = result["severity"]
-                    sev_color = SEVERITY_COLORS.get(sev, "#666")
+
+                    with col1:
+                        color = "#e74c3c" if verdict == "VULNERABLE" else "#2ecc71"
+                        st.markdown(
+                            f'<div style="text-align:center;padding:20px;background:{color};border-radius:10px;color:white">'
+                            f'<h2>{verdict}</h2><p>Vulnerability confidence: {vuln_prob:.1%}</p></div>',
+                            unsafe_allow_html=True,
+                        )
+                        st.progress(vuln_prob, text=f"Vulnerable: {vuln_prob:.1%}")
+                    with col2:
+                        st.metric("Predicted CWE", cwe)
+                        st.caption(cwe_name)
+                        if cwe_conf:
+                            st.progress(float(cwe_conf), text=f"CWE confidence: {cwe_conf:.1%}")
+                    with col3:
+                        sev_color = SEVERITY_COLORS.get(sev, "#666")
+                        st.markdown(
+                            f'<div style="text-align:center;padding:15px;background:{sev_color};border-radius:10px;color:white">'
+                            f'<h3>Severity: {sev}</h3></div>',
+                            unsafe_allow_html=True,
+                        )
+                        for name, prob in result.get("severity_probabilities", {}).items():
+                            st.progress(float(prob), text=f"{name}: {prob:.1%}")
+
+                    st.header("🔎 Suspicious Lines")
+                    source_lines = result.get("source_lines", code_input.splitlines())
+                    line_scores = result.get("line_scores", {})
+                    top_k = len(source_lines)
+                    st.caption("All lines are highlighted using Integrated Gradients attribution")
                     st.markdown(
-                        f'<div style="text-align:center;padding:15px;background:{sev_color};border-radius:10px;color:white">'
-                        f'<h3>Severity: {sev}</h3>'
-                        f'</div>',
-                        unsafe_allow_html=True
+                        highlight_code_html(source_lines, line_scores, top_k),
+                        unsafe_allow_html=True,
                     )
-                    sev_probs = result.get("severity_probabilities", {})
-                    for s, p in sev_probs.items():
-                        st.progress(float(p), text=f"{s}: {p:.1%}")
 
-                # Highlighted code
-                st.header("🔎 Suspicious Lines")
-                source_lines = result.get("source_lines", code_input.splitlines())
-                line_scores = result.get("line_scores", {})
-                top_k = len(source_lines)
-                st.caption("All lines highlighted by attribution score (red = more suspicious)")
-                html = highlight_code_html(source_lines, line_scores, top_k)
-                st.markdown(html, unsafe_allow_html=True)
+                    st.header("💬 Code Review Comment")
+                    top_lines = sorted(line_scores.items(), key=lambda x: -x[1])[:3]
+                    top_line_nums = [i + 1 for i, _ in top_lines]
+                    if verdict == "VULNERABLE":
+                        comment = (
+                            f"**⚠️ Potential vulnerability detected** ({cwe}: {cwe_name}). "
+                            f"Severity: **{sev}**."
+                        )
+                        if top_line_nums:
+                            comment += f" The most suspicious lines are **{', '.join(map(str, top_line_nums))}**."
+                    else:
+                        comment = "✅ No vulnerability pattern detected. This appears to be a fixed/safe version."
+                    st.info(comment)
+                except Exception as e:
+                    st.error(f"Inference error: {e}")
+                    logger.error("Inference error", exc_info=True)
+        elif model is not None and not code_input.strip():
+            st.info("Paste code or upload a file, then click **Analyze for Vulnerabilities**.")
 
-                # Code review comment
-                st.header("💬 Code Review Comment")
-                top_lines = sorted(line_scores.items(), key=lambda x: -x[1])[:3] if line_scores else []
-                top_line_nums = [i+1 for i, _ in top_lines]
-                if verdict == "VULNERABLE":
-                    comment = (
-                        f"**⚠️ Potential vulnerability detected** ({cwe}: {cwe_name}).\n\n"
-                        f"Severity: **{sev}**. "
-                    )
-                    if top_line_nums:
-                        comment += f"The most suspicious lines are: **{', '.join(map(str, top_line_nums))}**. "
-                    comment += "\n\nPlease review these lines carefully and ensure proper bounds checking, null pointer handling, or input validation as appropriate."
-                else:
-                    comment = "✅ No vulnerability pattern detected. This appears to be a fixed/safe version."
-                st.info(comment)
+    with model_tab:
+        status = "✅ Loaded" if model is not None else "❌ Not loaded"
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("Model Status", status)
+        with c2:
+            st.metric("Base Model", "CodeBERT")
+        with c3:
+            st.metric("IG Precision", "50 steps")
+        with c4:
+            st.metric("Test F1", test_f1)
 
-            except Exception as e:
-                st.error(f"Inference error: {e}")
-                logger.error("Inference error", exc_info=True)
+        st.markdown("### Model Details")
+        d1, d2 = st.columns(2)
+        with d1:
+            st.markdown(
+                f"- **Checkpoint:** `{Path(ckpt_path).name if ckpt_path else 'Not loaded'}`\n"
+                "- **Base:** `microsoft/codebert-base` (125M)\n"
+                "- **Training protocol:** P1 (Random, commit-grouped)\n"
+                f"- **Device:** `{device}`"
+            )
+        with d2:
+            st.markdown(
+                "- **Heads:** Vulnerability, CWE, Severity\n"
+                "- **Dataset:** Big-Vul · 35,106 pairs\n"
+                "- **Loc@1:** 50.67%\n"
+                "- **Loc@3:** 81.67%"
+            )
 
-    elif model is not None and not code_input.strip():
-        st.info("Paste some code or choose a built-in example, then click **Analyze**.")
+        st.markdown("### Inference Pipeline")
+        p1, p2, p3, p4 = st.columns(4)
+        for column, title, detail in [
+            (p1, "1 · Tokenize", "CodeBERT tokenizer"),
+            (p2, "2 · Encode", "12 Transformer layers"),
+            (p3, "3 · Predict", "Three task-specific heads"),
+            (p4, "4 · Explain", "Integrated Gradients → lines"),
+        ]:
+            with column:
+                st.info(f"**{title}**\n\n{detail}")
+
+    with about_tab:
+        st.markdown("### About VulnReview")
+        st.markdown(
+            "VulnReview is a patch-pair multi-task system for vulnerability-aware code review. "
+            "It combines CodeBERT classification with Integrated Gradients line attribution."
+        )
+        st.markdown(
+            "Built on [Big-Vul](https://github.com/ZeoVan/MSR_20_Code_vulnerability_csv_Dataset) "
+            "and [CodeBERT](https://arxiv.org/abs/2002.08155).\n\n"
+            "**Author:** Aryan Batra (24CSU027), The NorthCap University"
+        )
 
 
 if __name__ == "__main__":
